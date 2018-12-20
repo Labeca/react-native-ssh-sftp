@@ -117,7 +117,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
             clientPool.put(key, client);
 
             Log.d(LOGTAG, "Session connected");
-            callback.invoke();
+            callback.invoke(client);
           }
         } catch (JSchException error) {
           Log.e(LOGTAG, "Connection failed: " + error.getMessage());
