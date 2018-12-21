@@ -69,18 +69,22 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void connectSFTP(Promise promise) {
-    try {
-      SSHClient client = this.sshClient;
-      ChannelSftp channelSftp = (ChannelSftp) client.getSession().openChannel("sftp");
-      sshClient.setSftpSession(channelSftp);
-      sshClient.getSftpSession().connect();
+  public void connectSFTP(final Promise promise) {
+    new Thread(new Runnable() {
+      public void run() {
+        try {
+          SSHClient client = sshClient;
+          ChannelSftp channelSftp = (ChannelSftp) client.getSession().openChannel("sftp");
+          client.setSftpSession(channelSftp);
+          client.getSftpSession().connect();
 
-      promise.resolve(true);
-    } catch (JSchException error) {
-      Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
-      promise.reject("ERROR", error.getMessage());
-    }
+          promise.resolve(true);
+        } catch (JSchException error) {
+          Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
+          promise.reject("ERROR", error.getMessage());
+        }
+      }
+    }).start();
   }
 
   @ReactMethod
@@ -94,15 +98,19 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void sftpUpload(final String filePath, final String path, final Promise promise) {
-    try {
-      SSHClient client = this.sshClient;
-      ChannelSftp channelSftp = client.getSftpSession();
-      channelSftp.put(filePath, path + '/' + (new File(filePath)).getName(), null, ChannelSftp.OVERWRITE);
-      promise.resolve(true);
-    } catch (SftpException error) {
-      Log.e(LOGTAG, "Failed to upload " + filePath);
-      promise.reject(error);
-    }
+    new Thread(new Runnable() {
+      public void run() {
+        try {
+          SSHClient client = sshClient;
+          ChannelSftp channelSftp = client.getSftpSession();
+          channelSftp.put(filePath, path + '/' + (new File(filePath)).getName(), null, ChannelSftp.OVERWRITE);
+          promise.resolve(true);
+        } catch (SftpException error) {
+          Log.e(LOGTAG, "Failed to upload " + filePath);
+          promise.reject(error);
+        }
+      }
+    }).start();
   }
 
   @ReactMethod

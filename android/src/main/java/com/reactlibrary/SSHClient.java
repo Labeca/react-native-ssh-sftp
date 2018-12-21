@@ -39,23 +39,27 @@ public class SSHClient {
     return sftpSession;
   }
 
-  public void connect(String host, Integer port, String username, String password, Promise promise) {
-    Properties properties = new Properties();
-    properties.setProperty("StrictHostKeyChecking", "no");
+  public void connect(final String host, final Integer port, final String username, final String password, final Promise promise) {
+    new Thread(new Runnable() {
+      public void  run() {
+        try {
+          Properties properties = new Properties();
+          properties.setProperty("StrictHostKeyChecking", "no");
 
-    try {
-      // Open session
-      this.session = this.jsch.getSession(username, host, port);
-      this.session.setPassword(password);
-      this.session.setConfig(properties);
-      this.session.connect();
+          // Open session
+          session = jsch.getSession(username, host, port);
+          session.setPassword(password);
+          session.setConfig(properties);
+          session.connect();
 
-    } catch (JSchException error) {
-      Log.e(LOGTAG, "Connection failed: " + error.getMessage());
-      promise.reject(error);
-    } catch (Exception error) {
-      Log.e(LOGTAG, "Connection failed: " + error.getMessage());
-      promise.reject(error);
-    }
+        } catch (JSchException error) {
+          Log.e(LOGTAG, "Connection failed: " + error.getMessage());
+          promise.reject(error);
+        } catch (Exception error) {
+          Log.e(LOGTAG, "Connection failed: " + error.getMessage());
+          promise.reject(error);
+        }
+      }
+    }).start();
   }
 }
