@@ -5,6 +5,7 @@ import android.util.Log;
 import android.support.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
@@ -46,7 +47,6 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
   private static final String LOGTAG = "RNSSHClient";
   private static final String DOWNLOAD_PATH = Environment.getExternalStorageDirectory().getPath();
 
-  public Map<String, SSHClient> clientPool = new HashMap<>();
 
   public RNSshClientModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -60,212 +60,56 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
   }
   
   @ReactMethod
-  private void connect(String host, Integer port, String username, String password, Callback callback) {
-    sshClient.connect(host, port, username, password);
+  public void connect(final String host, final Integer port, final String username, final String password, final Promise promise) {
+    this.sshClient.connect(host, port, username, password, promise);
 
-    if(sshClient.getSession().isConnected()){
-      callback.invoke(null, sshClient);
+    if(this.sshClient.getSession().isConnected()){
+      promise.resolve(true);
     }
   }
 
   @ReactMethod
-  public void connectSFTP(final String key, final Callback callback) {
+  public void connectSFTP(Promise promise) {
     try {
       SSHClient client = this.sshClient;
       ChannelSftp channelSftp = (ChannelSftp) client.getSession().openChannel("sftp");
       sshClient.setSftpSession(channelSftp);
       sshClient.getSftpSession().connect();
 
-      callback.invoke(null, sshClient.getSftpSession());
+      promise.resolve(true);
     } catch (JSchException error) {
       Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
-      callback.invoke(error.getMessage());
+      promise.reject("ERROR", error.getMessage());
     }
   }
 
   @ReactMethod
-  public void disconnectSFTP(final String key) {
+  public void disconnectSFTP() {
     SSHClient client = this.sshClient;
     if (client.getSftpSession() != null) {
       client.getSftpSession().disconnect();
     }
   }
 
-//  @ReactMethod
-//  public void sftpLs(final String path, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          ChannelSftp channelSftp = client._sftpSession;
-//
-//          Vector<LsEntry> files = channelSftp.ls(path);
-//          WritableArray response = new WritableNativeArray();
-//
-//          for (LsEntry file: files) {
-//            int isDir = 0;
-//            String filename = file.getFilename();
-//            if (filename.trim().equals(".") || filename.trim().equals(".."))
-//              continue;
-//
-//            if (file.getAttrs().isDir()) {
-//              isDir = 1;
-//              filename += '/';
-//            }
-//            String str = String.format(Locale.getDefault(),
-//              "{\"filename\":\"%s\"," +
-//              "\"isDirectory\":%d," +
-//              "\"modificationDate\":\"%s\"," +
-//              "\"lastAccess\":\"%s\"," +
-//              "\"fileSize\":%d," +
-//              "\"ownerUserID\":%d," +
-//              "\"ownerGroupID\":%d," +
-//              "\"permissions\":\"%s\"," +
-//              "\"flags\":%d}",
-//              filename,
-//              isDir,
-//              file.getAttrs().getMTime(),
-//              file.getAttrs().getATime(),
-//              file.getAttrs().getSize(),
-//              file.getAttrs().getUId(),
-//              file.getAttrs().getGId(),
-//              file.getAttrs().getPermissions(),
-//              file.getAttrs().getFlags()
-//            );
-//            response.pushString(str);
-//          }
-//          callback.invoke(null, response);
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to list path " + path);
-//          callback.invoke("Failed to list path " + path);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpRename(final String oldPath, final String newPath, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          ChannelSftp channelSftp = client._sftpSession;
-//          channelSftp.rename(oldPath, newPath);
-//          callback.invoke();
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to rename path " + oldPath);
-//          callback.invoke("Failed to rename path " + oldPath);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpMkdir(final String path, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          ChannelSftp channelSftp = client._sftpSession;
-//          channelSftp.mkdir(path);
-//          callback.invoke();
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to create directory " + path);
-//          callback.invoke("Failed to create directory " + path);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpRm(final String path, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          ChannelSftp channelSftp = client._sftpSession;
-//          channelSftp.rm(path);
-//          callback.invoke();
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to remove " + path);
-//          callback.invoke("Failed to remove " + path);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpRmdir(final String path, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          ChannelSftp channelSftp = client._sftpSession;
-//          channelSftp.rmdir(path);
-//          callback.invoke();
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to remove " + path);
-//          callback.invoke("Failed to remove " + path);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpDownload(final String filePath, final String path, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          client._downloadContinue = true;
-//          ChannelSftp channelSftp = client._sftpSession;
-//          channelSftp.get(filePath, path, new progressMonitor(key, "DownloadProgress"));
-//          callback.invoke(null, path + '/' + (new File(filePath)).getName());
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to download " + filePath);
-//          callback.invoke("Failed to download " + filePath);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpUpload(final String filePath, final String path, final String key, final Callback callback) {
-//    new Thread(new Runnable()  {
-//      public void run() {
-//        try {
-//          SSHClient client = clientPool.get(key);
-//          client._uploadContinue = true;
-//          ChannelSftp channelSftp = client._sftpSession;
-//          channelSftp.put(filePath, path + '/' + (new File(filePath)).getName(), new progressMonitor(key, "UploadProgress"), ChannelSftp.OVERWRITE);
-//          callback.invoke();
-//        } catch (SftpException error) {
-//          Log.e(LOGTAG, "Failed to upload " + filePath);
-//          callback.invoke("Failed to upload " + filePath);
-//        }
-//      }
-//    }).start();
-//  }
-//
-//  @ReactMethod
-//  public void sftpCancelDownload(final String key) {
-//    SSHClient client = clientPool.get(key);
-//    client._downloadContinue = false;
-//  }
-//
-//  @ReactMethod
-//  public void sftpCancelUpload(final String key) {
-//    SSHClient client = clientPool.get(key);
-//    client._uploadContinue = false;
-//  }
-//
-//  @ReactMethod
-//  public void disconnect(final String key) {
-//    this.closeShell(key);
-//    this.disconnectSFTP(key);
-//
-//    SSHClient client = clientPool.get(key);
-//    client._session.disconnect();
-//  }
-//
+
+  @ReactMethod
+  public void sftpUpload(final String filePath, final String path, final Promise promise) {
+    try {
+      SSHClient client = this.sshClient;
+      ChannelSftp channelSftp = client.getSftpSession();
+      channelSftp.put(filePath, path + '/' + (new File(filePath)).getName(), null, ChannelSftp.OVERWRITE);
+      promise.resolve(true);
+    } catch (SftpException error) {
+      Log.e(LOGTAG, "Failed to upload " + filePath);
+      promise.reject(error);
+    }
+  }
+
+  @ReactMethod
+  public void disconnect() {
+    SSHClient client = this.sshClient;
+    client.getSftpSession().disconnect();
+    client.getSession().disconnect();
+  }
+
 }
