@@ -66,7 +66,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
     sshClient.connect(host, port, username, password, keyPairs, callback);
 
     if(sshClient.getSession().isConnected()){
-      callback.invoke(null, sshClient;
+      callback.invoke(null, sshClient);
     }
   }
 
