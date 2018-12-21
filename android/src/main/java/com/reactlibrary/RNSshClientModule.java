@@ -31,6 +31,7 @@ import com.jcraft.jsch.SftpProgressMonitor;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -60,12 +61,8 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
   }
   
   @ReactMethod
-  public void connect(final String host, final Integer port, final String username, final String password, final Promise promise) {
-    this.sshClient.connect(host, port, username, password, promise);
-
-    if(this.sshClient.getSession().isConnected()){
-      promise.resolve(true);
-    }
+  public synchronized void connect(final String host, final Integer port, final String username, final String password, final Promise promise) {
+    sshClient.connect(host, port, username, password, promise);
   }
 
   @ReactMethod
@@ -73,15 +70,17 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
     new Thread(new Runnable() {
       public void run() {
         try {
-          SSHClient client = sshClient;
-          ChannelSftp channelSftp = (ChannelSftp) client.getSession().openChannel("sftp");
-          client.setSftpSession(channelSftp);
-          client.getSftpSession().connect();
+          ChannelSftp channelSftp = (ChannelSftp) sshClient.getSession().openChannel("sftp");
+          channelSftp.connect();
+          sshClient.setSftpSession(channelSftp);
 
           promise.resolve(true);
         } catch (JSchException error) {
           Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
-          promise.reject("ERROR", error.getMessage());
+          promise.reject("JSchException", error.getMessage());
+        } catch (Exception error) {
+          Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
+          promise.reject("Exception", error.getMessage());
         }
       }
     }).start();
@@ -101,13 +100,16 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
     new Thread(new Runnable() {
       public void run() {
         try {
-          SSHClient client = sshClient;
-          ChannelSftp channelSftp = client.getSftpSession();
-          channelSftp.put(filePath, path + '/' + (new File(filePath)).getName(), null, ChannelSftp.OVERWRITE);
+          InputStream file = new FileInputStream(filePath);
+          ChannelSftp channelSftp = sshClient.getSftpSession();
+          channelSftp.put(file, path + '/', null, ChannelSftp.OVERWRITE);
           promise.resolve(true);
         } catch (SftpException error) {
           Log.e(LOGTAG, "Failed to upload " + filePath);
-          promise.reject(error);
+          promise.reject("SftpException", error.getMessage());
+        } catch (Exception error) {
+          Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
+          promise.reject("Exception", error.getMessage());
         }
       }
     }).start();
@@ -115,9 +117,8 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void disconnect() {
-    SSHClient client = this.sshClient;
-    client.getSftpSession().disconnect();
-    client.getSession().disconnect();
+    sshClient.getSftpSession().disconnect();
+    sshClient.getSession().disconnect();
   }
 
 }

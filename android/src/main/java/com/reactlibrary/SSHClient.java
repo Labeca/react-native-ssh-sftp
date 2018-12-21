@@ -52,6 +52,9 @@ public class SSHClient {
           session.setConfig(properties);
           session.connect();
 
+          if(session.isConnected()) {
+            promise.resolve(true);
+          }
         } catch (JSchException error) {
           Log.e(LOGTAG, "Connection failed: " + error.getMessage());
           promise.reject(error);
