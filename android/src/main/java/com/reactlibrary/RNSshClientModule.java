@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 
-import okhttp3.internal.Util;
 
 public class RNSshClientModule extends ReactContextBaseJavaModule {
   private SSHClient sshClient;
@@ -59,11 +58,10 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
   public String getName() {
     return "RNSSHClient";
   }
-
-
+  
   @ReactMethod
-  private void connect(String host, Integer port, String username, String password, ReadableMap keyPairs, Callback callback) {
-    sshClient.connect(host, port, username, password, keyPairs, callback);
+  private void connect(String host, Integer port, String username, String password, Callback callback) {
+    sshClient.connect(host, port, username, password);
 
     if(sshClient.getSession().isConnected()){
       callback.invoke(null, sshClient);

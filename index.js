@@ -11,77 +11,16 @@ const RNSSHClientEmitter = new NativeEventEmitter(RNSSHClient);
 
 class SSHClient {
   // passwordOrKey: password or {privateKey: value, [publicKey: value, passphrase: value]}
-	constructor(host, port, username, passwordOrKey, callback) {
-    this._key = Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
-    this.handlers = {};
-    this.host = host;
-    this.port = port;
-    this.username = username;
-    this.passwordOrKey = passwordOrKey;
-    this.connect(callback);
+	constructor(host, port, username, password, callback) {
+    this.host = host
+    this.port = port
+    this.username = username
+    this.password = password
+
+    RNSSHClient.connect(host, port, username, password, (err, resp) => {
+      return callback(err, resp)
+    })
 	}
-
-  _handleEvent (event) {
-    if (this.handlers.hasOwnProperty(event.name) && this._key === event.key) {
-      this.handlers[event.name](event.value);
-    }
-  }
-
-  on(event, handler) {
-    this.handlers[event] = handler;
-  }
-
-  connect(callback) {
-    if (Platform.OS === "android") {
-      if (typeof this.passwordOrKey === "string")
-        RNSSHClient.connectToHostByPassword(this.host, this.port, this.username, this.passwordOrKey, this._key,
-          (error) => {
-            callback && callback(error);
-          });
-      else
-        RNSSHClient.connectToHostByKey(this.host, this.port, this.username, this.passwordOrKey, this._key,
-          (error) => {
-            callback && callback(error);
-          });
-    } else {
-      RNSSHClient.connectToHost(this.host, this.port, this.username, this.passwordOrKey, this._key,
-        (error) => {
-          callback && callback(error);
-        });
-    }
-  }
-
-  execute(command, callback) {
-    RNSSHClient.execute(command, this._key, (error, response) => {
-      callback && callback(error, response);
-    });
-  }
-
-  // ptyType: vanilla, vt100, vt102, vt220, ansi, xterm
-	startShell(ptyType, callback) {
-    if (Platform.OS === 'ios') {
-      this.shellListener = RNSSHClientEmitter.addListener('Shell', this._handleEvent.bind(this));
-    } else {
-      this.shellListener = DeviceEventEmitter.addListener('Shell', this._handleEvent.bind(this));
-    }
-    RNSSHClient.startShell(this._key, ptyType, (error, response) => {
-      callback && callback(error, response);
-    });
-  }
-
-  writeToShell(command, callback) {
-    RNSSHClient.writeToShell(command, this._key, (error, response) => {
-      callback && callback(error, response);
-    });
-  }
-
-  closeShell() {
-    if (this.shellListener) {
-      this.shellListener.remove();
-      this.shellListener = null;
-    }
-    RNSSHClient.closeShell(this._key);
-  }
 
   connectSFTP(callback) {
     RNSSHClient.connectSFTP(this._key, (error) => {

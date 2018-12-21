@@ -39,18 +39,19 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 
-import okhttp3.internal.Util;
 
 public class SSHClient {
 
-  private Jsch jsch;
+  private JSch jsch;
 
   private Session session;
 
   private ChannelSftp sftpSession;
 
+  private static final String LOGTAG = "SSHClient";
+
   public SSHClient () {
-    this.jsch = new Jsch();
+    this.jsch = new JSch();
   }
 
   public Session getSession() {
@@ -65,31 +66,23 @@ public class SSHClient {
     return sftpSession;
   }
 
-  public void connect(String host, Integer port, String username, String password, ReadableMap keyPairs) {
+  public void connect(String host, Integer port, String username, String password) {
     Properties properties = new Properties();
     properties.setProperty("StrictHostKeyChecking", "no");
 
     try {
-      if (password == null) {
-        byte[] privateKey = keyPairs.getString("privateKey").getBytes();
-        byte[] publicKey = keyPairs.hasKey("publicKey") ? keyPairs.getString("publicKey").getBytes() : null;
-        byte[] passphrase = keyPairs.hasKey("passphrase") ? keyPairs.getString("passphrase").getBytes() : null;
-        jsch.addIdentity("default", privateKey, publicKey, passphrase);
-      } else {
-        session.setPassword(password);
-      }
-
       // Open session
       this.session = this.jsch.getSession(username, host, port);
-      session.setConfig(properties);
-      session.connect();
+      this.session.setPassword(password);
+      this.session.setConfig(properties);
+      this.session.connect();
 
     } catch (JSchException error) {
       Log.e(LOGTAG, "Connection failed: " + error.getMessage());
-      callback.invoke(error.getMessage());
+//      callback.invoke(error.getMessage());
     } catch (Exception error) {
       Log.e(LOGTAG, "Connection failed: " + error.getMessage());
-      callback.invoke(error.getMessage());
+//      callback.invoke(error.getMessage());
     }
   }
 }
