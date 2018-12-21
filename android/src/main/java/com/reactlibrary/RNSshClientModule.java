@@ -42,25 +42,16 @@ import java.util.Vector;
 import okhttp3.internal.Util;
 
 public class RNSshClientModule extends ReactContextBaseJavaModule {
-  private class SSHClient {
-    Session _session;
-    String _key;
-    BufferedReader _bufferedReader;
-    DataOutputStream _dataOutputStream;
-    Channel _channel = null;
-    ChannelSftp _sftpSession = null;
-    Boolean _downloadContinue = false;
-    Boolean _uploadContinue = false;
-  }
-
+  private SSHClient sshClient
   private final ReactApplicationContext reactContext;
   private static final String LOGTAG = "RNSSHClient";
   private static final String DOWNLOAD_PATH = Environment.getExternalStorageDirectory().getPath();
 
-  Map<String, SSHClient> clientPool = new HashMap<>();
+  public Map<String, SSHClient> clientPool = new HashMap<>();
 
   public RNSshClientModule(ReactApplicationContext reactContext) {
     super(reactContext);
+    this.sshClient = new SSHClient();
     this.reactContext = reactContext;
   }
 
@@ -69,210 +60,37 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
     return "RNSSHClient";
   }
 
-  private void sendEvent(ReactContext reactContext,
-                         String eventName,
-                         @Nullable WritableMap params) {
-    reactContext
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-            .emit(eventName, params);
-  }
 
   @ReactMethod
-  private void connectToHostByPassword(final String host, final Integer port, final String username, final String passwordOrKey, final String key, final Callback callback) {
-    connectToHost(host, port, username, passwordOrKey, null, key, callback);
-  }
+  private void connect(String host, Integer port, String username, String password, ReadableMap keyPairs, Callback callback) {
+    sshClient.connect(host, port, username, password, keyPairs, callback);
 
-  @ReactMethod
-  private void connectToHostByKey(final String host, final Integer port, final String username, final ReadableMap passwordOrKey, final String key, final Callback callback) {
-    connectToHost(host, port, username, null, passwordOrKey, key, callback);
-  }
-
-  private void connectToHost(final String host, final Integer port, final String username,final String password, final ReadableMap keyPairs, final String key, final Callback callback) {
-    new Thread(new Runnable()  {
-      public void run() {
-        try {
-          JSch jsch = new JSch();
-
-          if (password == null) {
-            byte[] privateKey = keyPairs.getString("privateKey").getBytes();
-            byte[] publicKey = keyPairs.hasKey("publicKey") ? keyPairs.getString("publicKey").getBytes() : null;
-            byte[] passphrase = keyPairs.hasKey("passphrase") ? keyPairs.getString("passphrase").getBytes() : null;
-            jsch.addIdentity("default", privateKey, publicKey, passphrase);
-          }
-
-          Session session = jsch.getSession(username, host, port);
-
-          if (password != null)
-            session.setPassword(password);
-
-          Properties properties = new Properties();
-          properties.setProperty("StrictHostKeyChecking", "no");
-          session.setConfig(properties);
-          session.connect();
-
-          if (session.isConnected()) {
-            SSHClient client = new SSHClient();
-            client._session = session;
-            client._key = key;
-            clientPool.put(key, client);
-
-            Log.d(LOGTAG, "Session connected");
-            callback.invoke(client);
-          }
-        } catch (JSchException error) {
-          Log.e(LOGTAG, "Connection failed: " + error.getMessage());
-          callback.invoke(error.getMessage());
-        } catch (Exception error) {
-          Log.e(LOGTAG, "Connection failed: " + error.getMessage());
-          callback.invoke(error.getMessage());
-        }
-      }
-    }).start();
-  }
-
-
-  @ReactMethod
-  public void execute(final String command, final String key, final Callback callback) {
-    new Thread(new Runnable() {
-      public void run() {
-        try {
-          SSHClient client = clientPool.get(key);
-          Session session = client._session;
-
-          ChannelExec channel = (ChannelExec) session.openChannel("exec");
-          channel.setCommand(command);
-          channel.connect();
-
-          String line, response = "";
-          InputStream in = channel.getInputStream();
-          BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-          while ((line = reader.readLine()) != null) {
-            response += line + "\r\n";
-          }
-
-          callback.invoke(null, response);
-        } catch (JSchException error) {
-          Log.e(LOGTAG, "Error executing command: " + error.getMessage());
-          callback.invoke(error.getMessage());
-        } catch (Exception error) {
-          Log.e(LOGTAG, "Error executing command: " + error.getMessage());
-          callback.invoke(error.getMessage());
-        }
-      }
-    }).start();
-  }
-
-  @ReactMethod
-  public void startShell(final String key, final String ptyType, final Callback callback) {
-    new Thread(new Runnable()  {
-      public void run() {
-        try {
-          SSHClient client = clientPool.get(key);
-          Session session = client._session;
-
-          Channel channel = session.openChannel("shell");
-          ((ChannelShell)channel).setPtyType(ptyType);
-          channel.connect();
-
-          InputStream in = channel.getInputStream();
-          client._channel = channel;
-          client._bufferedReader = new BufferedReader(new InputStreamReader(in));
-          client._dataOutputStream = new DataOutputStream(channel.getOutputStream());
-
-          callback.invoke();
-
-//        int charVal;
-          String line;
-          while (client._bufferedReader != null && (line = client._bufferedReader.readLine()) != null) {
-            WritableMap map = Arguments.createMap();
-            map.putString("name", "Shell");
-            map.putString("key", key);
-            map.putString("value", line + '\n');
-//          map.putString("value", String.valueOf(charVal));
-            sendEvent(reactContext, "Shell", map);
-          }
-
-        } catch (JSchException error) {
-          Log.e(LOGTAG, "Error starting shell: " + error.getMessage());
-          callback.invoke(error.getMessage());
-        } catch (IOException error) {
-          Log.e(LOGTAG, "Error starting shell: " + error.getMessage());
-          callback.invoke(error.getMessage());
-        }
-      }
-    }).start();
-  }
-
-  @ReactMethod
-  public void writeToShell(final String str, final String key, final Callback callback) {
-    new Thread(new Runnable()  {
-      public void run() {
-        try {
-          SSHClient client = clientPool.get(key);
-          client._dataOutputStream.writeBytes(str);
-          client._dataOutputStream.flush();
-          callback.invoke();
-        } catch (IOException error) {
-          Log.e(LOGTAG, "Error writing to shell:" + error.getMessage());
-          callback.invoke(error.getMessage());
-        }
-      }
-    }).start();
-  }
-
-  @ReactMethod
-  public void closeShell(final String key) {
-    new Thread(new Runnable()  {
-      public void run() {
-        try {
-          SSHClient client = clientPool.get(key);
-          if (client._channel != null) {
-              client._channel.disconnect();
-          }
-
-          if (client._dataOutputStream != null) {
-              client._dataOutputStream.flush();
-              client._dataOutputStream.close();
-          }
-
-          if (client._bufferedReader != null) {
-              client._bufferedReader.close();
-          }
-        } catch (IOException error) {
-          Log.e(LOGTAG, "Error closing shell:" + error.getMessage());
-        }
-      }
-    }).start();
+    if(sshClient.getSession().isConnected()){
+      callback.invoke(null, sshClient)
+    }
   }
 
   @ReactMethod
   public void connectSFTP(final String key, final Callback callback) {
-    new Thread(new Runnable()  {
-      public void run() {
-        try {
-          SSHClient client = clientPool.get(key);
-          ChannelSftp channelSftp = (ChannelSftp) client._session.openChannel("sftp");
-          channelSftp.connect();
-          client._sftpSession = channelSftp;
-          callback.invoke();
-        } catch (JSchException error) {
-          Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
-          callback.invoke(error.getMessage());
-        }
-      }
-    }).start();
+    try {
+      SSHClient client = this.sshClient;
+      ChannelSftp channelSftp = (ChannelSftp) client.getSession().openChannel("sftp");
+      sshClient.setSftpSession(channelSftp);
+      sshClient.getSftpSession().connect();
+
+      callback.invoke(null, sshClient.getSftpSession());
+    } catch (JSchException error) {
+      Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
+      callback.invoke(error.getMessage());
+    }
   }
 
   @ReactMethod
   public void disconnectSFTP(final String key) {
-    new Thread(new Runnable()  {
-      public void run() {
-        SSHClient client = clientPool.get(key);
-        if (client._sftpSession != null) {
-          client._sftpSession.disconnect();
-        }
-      }
-    }).start();
+    SSHClient client = this.sshClient;
+    if (client.getSftpSession() != null) {
+      client.getSftpSession().disconnect();
+    }
   }
 
   @ReactMethod
