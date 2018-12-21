@@ -76,7 +76,7 @@ public class SSHClient {
         byte[] passphrase = keyPairs.hasKey("passphrase") ? keyPairs.getString("passphrase").getBytes() : null;
         jsch.addIdentity("default", privateKey, publicKey, passphrase);
       } else {
-        session.setPassword(password)
+        session.setPassword(password);
       }
 
       // Open session

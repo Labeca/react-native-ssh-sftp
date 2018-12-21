@@ -42,7 +42,7 @@ import java.util.Vector;
 import okhttp3.internal.Util;
 
 public class RNSshClientModule extends ReactContextBaseJavaModule {
-  private SSHClient sshClient
+  private SSHClient sshClient;
   private final ReactApplicationContext reactContext;
   private static final String LOGTAG = "RNSSHClient";
   private static final String DOWNLOAD_PATH = Environment.getExternalStorageDirectory().getPath();
@@ -66,7 +66,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
     sshClient.connect(host, port, username, password, keyPairs, callback);
 
     if(sshClient.getSession().isConnected()){
-      callback.invoke(null, sshClient)
+      callback.invoke(null, sshClient;
     }
   }
 
