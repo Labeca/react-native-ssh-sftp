@@ -102,13 +102,13 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
         try {
           InputStream file = new FileInputStream(filePath);
           ChannelSftp channelSftp = sshClient.getSftpSession();
-          channelSftp.put(file, path + '/', null, ChannelSftp.OVERWRITE);
+          channelSftp.put(file, path + '/' + (new File(filePath)).getName(), null, ChannelSftp.OVERWRITE);
           promise.resolve(true);
         } catch (SftpException error) {
           Log.e(LOGTAG, "Failed to upload " + filePath);
           promise.reject("SftpException", error.getMessage());
         } catch (Exception error) {
-          Log.e(LOGTAG, "Error connecting SFTP:" + error.getMessage());
+          Log.e(LOGTAG, "Failed to upload:" + error.getMessage());
           promise.reject("Exception", error.getMessage());
         }
       }
@@ -120,5 +120,35 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
     sshClient.getSftpSession().disconnect();
     sshClient.getSession().disconnect();
   }
+
+  @ReactMethod
+  public void execute(final String command, final String key, final Promise promise) {
+    new Thread(new Runnable() {
+      public void run() {
+        try {
+          ChannelExec channel = (ChannelExec) sshClient.getSession().openChannel("exec");
+          channel.setCommand(command);
+          channel.connect();
+
+          String line, response = "";
+          InputStream in = channel.getInputStream();
+          BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+          while ((line = reader.readLine()) != null) {
+            response += line + "\r\n";
+          }
+          
+          channel.disconnect();
+          promise.resolve(response);
+        } catch (JSchException error) {
+          Log.e(LOGTAG, "Error executing command: " + error.getMessage());
+          promise.reject(error);
+        } catch (Exception error) {
+          Log.e(LOGTAG, "Error executing command: " + error.getMessage());
+          promise.reject(error);
+        }
+      }
+    }).start();
+  }
+
 
 }
