@@ -35,6 +35,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -96,13 +97,19 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
 
 
   @ReactMethod
-  public void sftpUpload(final String filePath, final String path, final Promise promise) {
+  public void sftpUpload(final String filePath, final String path, final String destinationFileName, final boolean changePermission, final Integer chmodCode,final Promise promise) {
     new Thread(new Runnable() {
       public void run() {
         try {
           InputStream file = new FileInputStream(filePath);
           ChannelSftp channelSftp = sshClient.getSftpSession();
-          channelSftp.put(file, path + '/' + (new File(filePath)).getName(), null, ChannelSftp.OVERWRITE);
+          String fileName = destinationFileName.length() > 0 ? destinationFileName : (new File(filePath)).getName();
+          channelSftp.put(file, path + '/' + fileName, null, ChannelSftp.OVERWRITE);
+
+          if (changePermission) {
+            channelSftp.chmod(chmodCode,path + '/' + fileName);
+          }
+
           promise.resolve(true);
         } catch (SftpException error) {
           Log.e(LOGTAG, "Failed to upload " + filePath);
@@ -122,7 +129,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void execute(final String command, final String key, final Promise promise) {
+  public void execute(final String command, final Promise promise) {
     new Thread(new Runnable() {
       public void run() {
         try {
@@ -136,7 +143,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
           while ((line = reader.readLine()) != null) {
             response += line + "\r\n";
           }
-          
+
           channel.disconnect();
           promise.resolve(response);
         } catch (JSchException error) {
