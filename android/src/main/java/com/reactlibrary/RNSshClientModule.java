@@ -97,7 +97,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
 
 
   @ReactMethod
-  public void sftpUpload(final String filePath, final String path, final String destinationFileName, final boolean changePermission, final Integer chmodCode,final Promise promise) {
+  public void sftpUpload(final String filePath, final String path, final String destinationFileName, final Boolean changePermission, final Integer chmodCode,final Promise promise) {
     new Thread(new Runnable() {
       public void run() {
         try {
@@ -105,6 +105,7 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
           ChannelSftp channelSftp = sshClient.getSftpSession();
           String fileName = destinationFileName.length() > 0 ? destinationFileName : (new File(filePath)).getName();
           channelSftp.put(file, path + '/' + fileName, null, ChannelSftp.OVERWRITE);
+          channelSftp.ls(path);
 
           if (changePermission) {
             channelSftp.chmod(chmodCode,path + '/' + fileName);
@@ -113,10 +114,10 @@ public class RNSshClientModule extends ReactContextBaseJavaModule {
           promise.resolve(true);
         } catch (SftpException error) {
           Log.e(LOGTAG, "Failed to upload " + filePath);
-          promise.reject("SftpException", error.getMessage());
+          promise.reject(error);
         } catch (Exception error) {
           Log.e(LOGTAG, "Failed to upload:" + error.getMessage());
-          promise.reject("Exception", error.getMessage());
+          promise.reject(error);
         }
       }
     }).start();
